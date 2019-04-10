@@ -51,6 +51,12 @@ public:
     }
 };
 
+template <class StateType, class SymbolType>
+class DFA{
+    std::map <StateType, std::map <SymbolType, StateType>> table_;
+
+};
+
 class Regex{
     std::string infixExp_;
     std::string postfixExp_;
@@ -59,6 +65,10 @@ class Regex{
     std::bitset <MAX_CHAR> first_;
     std::bitset <MAX_CHAR> last_;
     std::vector <std::bitset <MAX_CHAR>> follow_;
+    void print()
+    {
+
+    }
     std::string postfix(const std::string &infixExp)
     {
         std::string postfixExp;
@@ -132,7 +142,7 @@ class Regex{
                 lastStack.push(bitMask); //Last(x) = {x}
                 posStack.push(bitMask);
 
-                //we push the empty bit to its follow()
+                //we push the empty bit to its follow() since they come in order
                 followSet.push_back(0);
 
                 itr++;
@@ -146,33 +156,35 @@ class Regex{
                     //we also keep track whether epsilon belongs to the current subsequence of RE using the 0th byte
 
                     //follow
-                    for(int itr = 1; itr < MAX_CHAR; ++itr)
-                        if(posStack.top().test(itr))
-                            if(lastStack.top().test(itr))
-                                followSet[itr] |= firstStack.top();
+                    for(std::size_t itr = 1; itr < MAX_CHAR; ++itr)
+                        if(posStack.top().test(itr) && lastStack.top().test(itr))
+                            followSet[itr] |= firstStack.top();
                 }
                 if(chr == UNION)
                 {
                     //First(F | G) = First(F) U First(G)
                     std::bitset <MAX_CHAR> bitMask = firstStack.top();
                     firstStack.pop();
-                    bitMask |= firstStack.top();
+                    /*bitMask |= firstStack.top();
                     firstStack.pop();
-                    firstStack.push(bitMask);
+                    firstStack.push(bitMask);*/
+                    firstStack.top() |= bitMask;
 
                     //Last(F | G) = Last(F) U Last(G)
                     bitMask = lastStack.top();
                     lastStack.pop();
-                    bitMask |= lastStack.top();
+                    /*bitMask |= lastStack.top();
                     lastStack.pop();
-                    lastStack.push(bitMask);
+                    lastStack.push(bitMask);*/
+                    lastStack.top() |= bitMask;
 
                     //positions united
                     bitMask = posStack.top();
                     posStack.pop();
-                    bitMask |= posStack.top();
+                    /*bitMask |= posStack.top();
                     posStack.pop();
-                    posStack.push(bitMask);
+                    posStack.push(bitMask);*/
+                    posStack.top() |= bitMask;
 
                     //nothing changes for follow
                 }
@@ -182,20 +194,29 @@ class Regex{
                     std::bitset <MAX_CHAR> bitMask = firstStack.top();
                     auto firstG = bitMask;
                     firstStack.pop();
-                    if(firstStack.top()[0] == true)
+                    /*if(firstStack.top()[0] == true)
                     {
                         if(bitMask[0] == false)
                             firstStack.top()[0] = false;
                         bitMask |= firstStack.top();
                         firstStack.pop();
                         firstStack.push(bitMask);
+                    }*/
+                    if(firstStack.top().test(0))
+                    {
+                        if(!bitMask.test(0))
+                            firstStack.top().set(0, false);
+                        /*bitMask |= firstStack.top();
+                        firstStack.pop();
+                        firstStack.push(bitMask);*/
+                        firstStack.top() |= bitMask;
                     }
 
                     //Last(F + G) = Last(F) if epsilon DOES NOT belong to L(F); Last(F) U Last(G) if epsilon belongs to L(F)
                     bitMask = lastStack.top();
                     lastStack.pop();
                     auto lastF = lastStack.top();
-                    if(bitMask[0] == true)
+                    /*if(bitMask[0] == true)
                     {
                         if(lastStack.top()[0] == false)
                             bitMask[0] = false;
@@ -207,36 +228,48 @@ class Regex{
                     {
                         lastStack.pop();
                         lastStack.push(bitMask);
+                    }*/
+                    if(bitMask.test(0))
+                    {
+                        if(!lastStack.top().test(0))
+                            bitMask.set(0, false);
+                        /*bitMask |= lastStack.top();
+                        lastStack.pop();
+                        lastStack.push(bitMask);*/
+                        lastStack.top() |= bitMask;
+                    }
+                    else
+                    {
+                        lastStack.pop();
+                        lastStack.push(bitMask);
                     }
 
                     //positions concatenated (no difference)
                     bitMask = posStack.top();
                     posStack.pop();
-                    bitMask |= posStack.top();
+                    /*bitMask |= posStack.top();
                     posStack.pop();
-                    posStack.push(bitMask);
+                    posStack.push(bitMask);*/
+                    posStack.top() |= bitMask;
 
                     //follow
-                    for(int itr = 1; itr < MAX_CHAR; ++itr)
-                        if(posStack.top().test(itr))
-                            if(lastF.test(itr))
-                                followSet[itr] |= firstG;
-
+                    for(std::size_t itr = 1; itr < MAX_CHAR; ++itr)
+                        if(posStack.top().test(itr) && lastF.test(itr))
+                            followSet[itr] |= firstG;
                 }
             }
         }
         first_ = firstStack.top();
         last_ = lastStack.top();
-        follow_= followSet;
+        follow_= followSet; //can  be removed (useless copy)
         //std::cout << firstStack.size();
-        /*std::cout << firstStack.top()<<std::endl;
+        std::cout << firstStack.top()<<std::endl;
         std::cout << lastStack.top()<<std::endl;
         for(auto i: postfixIndexes_)
             std::cout<<i<<' ';
         std::cout<<std::endl;
         for(auto i: followSet)
-            std::cout<<i<<std::endl;*/
-
+            std::cout<<i<<std::endl;
     }
     uint8_t operatorPrecedence(const char &chr)
     {
@@ -283,7 +316,7 @@ class Regex{
     }
     void makeDFA(std::bitset <MAX_CHAR> first, std::bitset <MAX_CHAR> last, std::vector <std::bitset <MAX_CHAR>> follow, std::string postfixIndexes)
     {
-        /*NFA <std::bitset <MAX_CHAR>, char> table;
+        NFA <std::bitset <MAX_CHAR>, char> table;
         std::queue <std::bitset <MAX_CHAR>> states;
         states.push(first);
         //check for epsilon please.
@@ -296,7 +329,7 @@ class Regex{
             {
                 if(currentState.test(itr))
                 {
-                    auto symbolItr = newEntry.find(postfixIndexes[itr]);
+                    /*auto symbolItr = newEntry.find(postfixIndexes[itr]);
                     if(symbolItr != newEntry.end())
                     {
                         symbolItr->second |= follow[itr];
@@ -304,10 +337,11 @@ class Regex{
                     else
                     {
                         newEntry.insert({postfixIndexes[itr], follow[itr]});
-                    }
+                    }*/
                 }
             }
-        }*/
+        }
+        //DFA <std::bitset
     }
 public:
     Regex(const std::string &infixExp)
