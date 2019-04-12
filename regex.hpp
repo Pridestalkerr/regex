@@ -7,6 +7,8 @@
 #include<bitset>
 #include<cmath>
 #include<queue>
+#include<fstream>
+#include<iostream>
 
 #define UNION '|'
 #define STAR '*'
@@ -14,61 +16,17 @@
 #define WILDCARD '.'
 #define OPEN_PARENTHESIS '('
 #define CLOSE_PARENTHESIS ')'
-#define EPSILON '~'
 #define MAX_CHAR 16 //-1
 
 namespace rgx
 {
-template <class StateType, class SymbolType>
-class NFA{
-    std::map <StateType, std::map <SymbolType, std::set <StateType>>> table_;
-    StateType initialState_;
-    std::set <StateType> finalStates_;
-    std::set <SymbolType> symbols_;
-public:
-    void insertFinalState(const StateType &finalState)
-    {
-        finalStates_.insert(finalState);
-    }
-    void setInitialState(const StateType &initialState)
-    {
-        initialState_ = initialState;
-    }
-    void insertTrasition(const StateType &state1, const SymbolType &symbol, const StateType &state2)
-    {
-        symbols_.insert(symbol);
-        auto stateItr = table_.find(state1);
-        if(stateItr != table_.end())
-        {
-            auto symbolItr = stateItr->second.find(symbol);
-            if(symbolItr != stateItr->second.end())
-                symbolItr->second.insert(state2);
-            else
-                table_->second.insert({symbol, { {state2} }});
-        }
-        else
-            table_.insert({state1, { {symbol, { {state2} }} }});
-    }
-};
-
-template <class StateType, class SymbolType>
-class DFA{
-    std::map <StateType, std::map <SymbolType, StateType>> table_;
-
-};
-
 class Regex{
     std::string infixExp_;
     std::string postfixExp_;
     std::string postfixIndexes_;
-    NFA <uint32_t, char> automaton_;
     std::bitset <MAX_CHAR> first_;
     std::bitset <MAX_CHAR> last_;
     std::vector <std::bitset <MAX_CHAR>> follow_;
-    void print()
-    {
-
-    }
     std::string postfix(const std::string &infixExp)
     {
         std::string postfixExp;
@@ -104,12 +62,6 @@ class Regex{
         }
         return postfixExp;
     }
-    std::string convertToNFA(std::string postfixExp)
-    {
-        //NFA convertedExp;
-
-        //return convertedExp;
-    }
     std::string processConcat(const std::string &infixExp)
     {
         std::string processedExp;
@@ -128,8 +80,9 @@ class Regex{
         std::stack <std::bitset <MAX_CHAR>> firstStack;
         std::stack <std::bitset <MAX_CHAR>> lastStack;
         std::stack <std::bitset <MAX_CHAR>> posStack; //indexes that are contained within the stack expression
-        std::vector <std::bitset <MAX_CHAR>> followSet {0};
-        uint16_t itr = 1; //this will be our index
+        std::vector <std::bitset <MAX_CHAR>> followSet;
+        followSet.push_back(0);
+        std::size_t itr = 1; //this will be our index
         postfixIndexes_.push_back('a');
         for(auto chr: postfixExp)
         {
@@ -137,7 +90,7 @@ class Regex{
             {
                 postfixIndexes_.push_back(chr);
                 std::bitset <MAX_CHAR> bitMask;
-                bitMask[itr] = true;
+                bitMask.set(itr, true);
                 firstStack.push(bitMask); //First(x) = {x}
                 lastStack.push(bitMask); //Last(x) = {x}
                 posStack.push(bitMask);
@@ -165,25 +118,16 @@ class Regex{
                     //First(F | G) = First(F) U First(G)
                     std::bitset <MAX_CHAR> bitMask = firstStack.top();
                     firstStack.pop();
-                    /*bitMask |= firstStack.top();
-                    firstStack.pop();
-                    firstStack.push(bitMask);*/
                     firstStack.top() |= bitMask;
 
                     //Last(F | G) = Last(F) U Last(G)
                     bitMask = lastStack.top();
                     lastStack.pop();
-                    /*bitMask |= lastStack.top();
-                    lastStack.pop();
-                    lastStack.push(bitMask);*/
                     lastStack.top() |= bitMask;
 
                     //positions united
                     bitMask = posStack.top();
                     posStack.pop();
-                    /*bitMask |= posStack.top();
-                    posStack.pop();
-                    posStack.push(bitMask);*/
                     posStack.top() |= bitMask;
 
                     //nothing changes for follow
@@ -194,21 +138,10 @@ class Regex{
                     std::bitset <MAX_CHAR> bitMask = firstStack.top();
                     auto firstG = bitMask;
                     firstStack.pop();
-                    /*if(firstStack.top()[0] == true)
-                    {
-                        if(bitMask[0] == false)
-                            firstStack.top()[0] = false;
-                        bitMask |= firstStack.top();
-                        firstStack.pop();
-                        firstStack.push(bitMask);
-                    }*/
                     if(firstStack.top().test(0))
                     {
                         if(!bitMask.test(0))
                             firstStack.top().set(0, false);
-                        /*bitMask |= firstStack.top();
-                        firstStack.pop();
-                        firstStack.push(bitMask);*/
                         firstStack.top() |= bitMask;
                     }
 
@@ -216,26 +149,10 @@ class Regex{
                     bitMask = lastStack.top();
                     lastStack.pop();
                     auto lastF = lastStack.top();
-                    /*if(bitMask[0] == true)
-                    {
-                        if(lastStack.top()[0] == false)
-                            bitMask[0] = false;
-                        bitMask |= lastStack.top();
-                        lastStack.pop();
-                        lastStack.push(bitMask);
-                    }
-                    else
-                    {
-                        lastStack.pop();
-                        lastStack.push(bitMask);
-                    }*/
                     if(bitMask.test(0))
                     {
                         if(!lastStack.top().test(0))
                             bitMask.set(0, false);
-                        /*bitMask |= lastStack.top();
-                        lastStack.pop();
-                        lastStack.push(bitMask);*/
                         lastStack.top() |= bitMask;
                     }
                     else
@@ -247,9 +164,6 @@ class Regex{
                     //positions concatenated (no difference)
                     bitMask = posStack.top();
                     posStack.pop();
-                    /*bitMask |= posStack.top();
-                    posStack.pop();
-                    posStack.push(bitMask);*/
                     posStack.top() |= bitMask;
 
                     //follow
@@ -259,9 +173,9 @@ class Regex{
                 }
             }
         }
-        first_ = firstStack.top();
-        last_ = lastStack.top();
-        follow_= followSet; //can  be removed (useless copy)
+        first = firstStack.top();
+        last = lastStack.top();
+        follow = followSet;
         //std::cout << firstStack.size();
         std::cout << firstStack.top()<<std::endl;
         std::cout << lastStack.top()<<std::endl;
@@ -316,7 +230,7 @@ class Regex{
     }
     void makeDFA(std::bitset <MAX_CHAR> first, std::bitset <MAX_CHAR> last, std::vector <std::bitset <MAX_CHAR>> follow, std::string postfixIndexes)
     {
-        NFA <std::bitset <MAX_CHAR>, char> table;
+        /*NFA <std::bitset <MAX_CHAR>, char> table;
         std::queue <std::bitset <MAX_CHAR>> states;
         states.push(first);
         //check for epsilon please.
@@ -329,7 +243,7 @@ class Regex{
             {
                 if(currentState.test(itr))
                 {
-                    /*auto symbolItr = newEntry.find(postfixIndexes[itr]);
+                    auto symbolItr = newEntry.find(postfixIndexes[itr]);
                     if(symbolItr != newEntry.end())
                     {
                         symbolItr->second |= follow[itr];
@@ -337,18 +251,17 @@ class Regex{
                     else
                     {
                         newEntry.insert({postfixIndexes[itr], follow[itr]});
-                    }*/
+                    }
                 }
             }
-        }
+        }*/
         //DFA <std::bitset
     }
 public:
     Regex(const std::string &infixExp)
     {
         infixExp_ = infixExp;
-        //postfixExp_ = processInfixExp(infixExp);
-        std::cout<<processConcat(infixExp);
+        //std::cout<<processConcat(infixExp);
         postfixExp_ = postfix(processConcat(infixExp));
         //convertToNFA(postfixExp_);
         computeGlushkovSets(postfixExp_, first_, last_, follow_);
@@ -391,6 +304,19 @@ public:
     std::string getPostfix()
     {
         return postfixExp_;
+    }
+    void writeNFA(std::string fileName)
+    {
+        std::ofstream file(fileName);
+        for(std::size_t itr = 0; itr < MAX_CHAR; ++itr)
+            if(last_.test(itr))
+                file << itr << ' ';
+        file << std::endl;
+        follow_[0] = first_;
+        for(std::size_t itr = 0; itr < follow_.size(); ++itr)
+            for(std::size_t jtr = 1; jtr < MAX_CHAR; ++jtr)
+                if(follow_[itr].test(jtr))
+                    file << itr << ' ' << postfixIndexes_[jtr] << ' ' << jtr << std::endl;
     }
 };
 }
