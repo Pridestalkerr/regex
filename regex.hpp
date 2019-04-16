@@ -9,6 +9,8 @@
 #include<queue>
 #include<fstream>
 #include<iostream>
+#include<tuple>
+#include<list>
 
 #define UNION '|'
 #define STAR '*'
@@ -23,9 +25,9 @@ namespace rgx
 class Regex{
     std::string infixExp_;
     std::string postfixExp_;
-    std::string postfixIndexes_;
-    std::bitset <MAX_CHAR> first_;
-    std::bitset <MAX_CHAR> last_;
+    std::string postfixIndexes_; //rename to transitions (or something similar?)
+    std::bitset <MAX_CHAR> first_; //merge with follow[0]
+    std::bitset <MAX_CHAR> last_; //rename to final
     std::vector <std::bitset <MAX_CHAR>> follow_;
     std::string postfix(const std::string &infixExp)
     {
@@ -176,23 +178,16 @@ class Regex{
         first = firstStack.top();
         last = lastStack.top();
         follow = followSet;
-        //std::cout << firstStack.size();
-        std::cout << firstStack.top()<<std::endl;
-        std::cout << lastStack.top()<<std::endl;
-        for(auto i: postfixIndexes_)
-            std::cout<<i<<' ';
-        std::cout<<std::endl;
-        for(auto i: followSet)
-            std::cout<<i<<std::endl;
     }
+    //consider moving outside class
     uint8_t operatorPrecedence(const char &chr)
     {
         if(chr == STAR)
-            return 10;
-        if(chr == UNION)
-            return 2;
+            return 3;
         if(chr == CONCAT)
-            return 5;
+            return 2;
+        if(chr == UNION)
+            return 1;
         return 0;
     }
     bool detectConcat(const char &chr1, const char &chr2)
@@ -218,15 +213,6 @@ class Regex{
         if(chr == OPEN_PARENTHESIS || chr == CLOSE_PARENTHESIS)
             return true;
         return false;
-    }
-    void buildT()
-    {
-        /*std::vector <std::bitset <MAX_CHAR>> T;
-        T.push_back(0);
-        for(int i=0; i<=9;++i)
-            for(int j=0; j<=pow(2,i)-1; ++j)
-                T.push_back(follow_[i] | T[j]);
-        std::cout<<std::endl<<T[4];*/
     }
     void makeDFA(std::bitset <MAX_CHAR> first, std::bitset <MAX_CHAR> last, std::vector <std::bitset <MAX_CHAR>> follow, std::string postfixIndexes)
     {
@@ -255,21 +241,18 @@ class Regex{
                 }
             }
         }*/
-        //DFA <std::bitset
     }
 public:
     Regex(const std::string &infixExp)
     {
         infixExp_ = infixExp;
-        //std::cout<<processConcat(infixExp);
         postfixExp_ = postfix(processConcat(infixExp));
-        //convertToNFA(postfixExp_);
         computeGlushkovSets(postfixExp_, first_, last_, follow_);
         makeDFA(first_, last_, follow_, postfixIndexes_);
     }
     void checkWord(const std::string &word)
     {
-        auto stateSimualtor = first_;
+        auto stateSimulator = first_;
         bool isFinal = false;
         if(first_.test(0))
             isFinal = true;
@@ -277,25 +260,35 @@ public:
         {
             std::bitset <MAX_CHAR> transition;
             isFinal = false;
-            for(std::size_t itr = 1; itr < stateSimualtor.size(); ++itr)
+            for(std::size_t itr = 1; itr < stateSimulator.size(); ++itr)
             {
-                if(stateSimualtor.test(itr) && postfixIndexes_[itr] == chr)
+                if(stateSimulator.test(itr) && postfixIndexes_[itr] == chr)
                 {
                     transition |= follow_[itr];
                     if(last_[itr])
                         isFinal = true;
                 }
             }
-            stateSimualtor = transition;
+            stateSimulator = transition;
         }
         if(isFinal)
             std::cout<<"OK";
         else
             std::cout<<"NO";
     }
-    void match(const std::string &sample)
+    void search(const std::string &sample)
     {
+        //empty words will be ignored
+        /*std::list <std::tuple <std::bitset <MAX_CHAR>, std::size_t, std::size_t, bool>> matches; //transition, begin, begin+size
+        for(std::size_t itr = 0; itr < sample.size(); )
+        {
+            matches.push_back({first_, itr, 0});
+            for(auto itr: matches)
+            {
+                if()
+            }
 
+        }*/
     }
     std::string getInfix()
     {
