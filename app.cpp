@@ -2,8 +2,13 @@
 
 int main()
 {
-    auto A = rgx::Regex("a*");
-    A.writeNFA("graphviz/DFA.txt");
-    A.search("aaaaa");
+	// a*bbbbcccccc+*
+    rgx::Regex<> A("(a\\*b*)*c*\\+\\*");
+    // rgx::Regex<> A("(a*b*)*c");
+    // rgx::Regex<> A("(ab*)*c*\\*");
+    std::cout << A.match("a*bbbbcccccc+***aa");
+
+    std::cout << A.search("a*bbbbcccccc+***aaa*bbbbcccccc+***aa");
+    // A.search("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     return 0;
 }
